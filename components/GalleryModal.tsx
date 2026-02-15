@@ -155,6 +155,12 @@ const ImageEditor: React.FC<EditorProps> = ({ image, src, onClose, onUpdate }) =
     );
 };
 
+// Define structure for prepared uploads
+interface PendingUpload {
+    name: string;
+    data: string; // Base64
+}
+
 export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClose, onPremiumRequired }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'upload'>('view');
   const [allImages, setAllImages] = useState<db.DBImage[]>([]);
@@ -165,8 +171,8 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
   // Render Helpers
   const imageUrls = useObjectUrls(visibleImages);
   
-  // Upload State
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Upload State - CHANGED: Store Base64 strings instead of File objects
+  const [pendingFiles, setPendingFiles] = useState<PendingUpload[]>([]);
   const [uploadTags, setUploadTags] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
@@ -193,18 +199,37 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // CHANGED: Process files to Base64 immediately to avoid WebView file access loss
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      const newFiles: File[] = [];
+      const filePromises: Promise<PendingUpload>[] = [];
+
       for (let i = 0; i < files.length; i++) {
-          newFiles.push(files[i]);
+          const file = files[i];
+          const p = new Promise<PendingUpload>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                  resolve({
+                      name: file.name,
+                      data: ev.target?.result as string
+                  });
+              };
+              reader.readAsDataURL(file);
+          });
+          filePromises.push(p);
+      }
+
+      try {
+          const processedFiles = await Promise.all(filePromises);
+          setPendingFiles(prev => [...prev, ...processedFiles]);
+      } catch (err) {
+          console.error("Error reading files", err);
+          window.notify("Failed to process some images.", "error");
       }
       
-      setPendingFiles(prev => [...prev, ...newFiles]);
-      
-      // Clear input safely to ensure the browser registers new selections of same file
+      // Clear input safely
       e.target.value = '';
   };
 
@@ -227,15 +252,14 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
           
           // Save sequentially to avoid DB locking and ensure stability
           for (let i = 0; i < pendingFiles.length; i++) {
+              const fileObj = pendingFiles[i];
               const uniqueId = (Date.now() + i).toString() + Math.random().toString(36).substr(2, 5);
               
-              // Explicitly creating a new Blob ensures any File references are stable
-              const safeBlob = new Blob([pendingFiles[i]], { type: pendingFiles[i].type });
-
+              // Use Base64 string directly - safer for APKs/WebViews than Blobs
               const newEntry: db.DBImage = {
                 id: uniqueId,
                 personaId: persona.id,
-                data: safeBlob, 
+                data: fileObj.data, 
                 tags: tags,
                 description: "Imported High Quality",
                 timestamp: Date.now()
