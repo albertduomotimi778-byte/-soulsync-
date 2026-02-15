@@ -17,7 +17,7 @@ export const enableDeveloperMode = () => {
 };
 
 export const disableDeveloperMode = () => {
-    localStorage.removeItem('soulsync_is_dev');
+    localStorage.setItem('soulsync_is_dev', 'false');
 };
 
 export const checkDevPassword = (password: string): boolean => {
@@ -32,6 +32,9 @@ export const getRemainingTime = (): number => 999999999;
 
 export const checkAndHandleExpiration = (): boolean => false;
 
-export const isDeveloperMode = (): boolean => localStorage.getItem('soulsync_is_dev') === 'true';
+export const isDeveloperMode = (): boolean => {
+    // Default to enabled (true) if not explicitly set to 'false'
+    return localStorage.getItem('soulsync_is_dev') !== 'false';
+};
 
 export const expireSession = () => {};
