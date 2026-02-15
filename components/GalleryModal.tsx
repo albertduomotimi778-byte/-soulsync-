@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PersonaProfile } from '../types';
 import * as db from '../services/db';
-import { isPremium } from '../services/premiumService';
+import { isPremium, isDeveloperMode } from '../services/premiumService';
 
 interface Props {
   persona: PersonaProfile;
@@ -168,6 +168,9 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
   const [page, setPage] = useState(1);
   const [editingImage, setEditingImage] = useState<db.DBImage | null>(null);
   
+  // Developer Check
+  const isDev = isDeveloperMode();
+
   // Render Helpers
   const imageUrls = useObjectUrls(visibleImages);
   
@@ -309,7 +312,9 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
 
         <div className="flex bg-darker border-b border-gray-700">
             <button onClick={() => setActiveTab('view')} className={`flex-1 p-3 text-sm font-medium ${activeTab === 'view' ? 'text-primary border-b-2 border-primary' : 'text-gray-400 hover:text-white'}`}>Gallery ({allImages.length})</button>
-            <button onClick={() => setActiveTab('upload')} className={`flex-1 p-3 text-sm font-medium ${activeTab === 'upload' ? 'text-primary border-b-2 border-primary' : 'text-gray-400 hover:text-white'}`}>Upload Custom</button>
+            {isDev && (
+                <button onClick={() => setActiveTab('upload')} className={`flex-1 p-3 text-sm font-medium ${activeTab === 'upload' ? 'text-primary border-b-2 border-primary' : 'text-gray-400 hover:text-white'}`}>Upload Custom</button>
+            )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-[#0a0a0a] custom-scrollbar">
@@ -335,8 +340,34 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
                             </div>
                         ))
                     ) : (
-                        <div className="col-span-full text-center py-10 text-gray-500">
-                            No images in memory. Upload some photos and tag them to give your bot a visual library.
+                        <div className="col-span-full flex flex-col items-center justify-center py-12 text-center space-y-4 animate-fade-in">
+                            {isDev ? (
+                                <>
+                                    <div className="text-4xl">📂</div>
+                                    <p className="text-gray-500">No images in memory.</p>
+                                    <button onClick={() => setActiveTab('upload')} className="text-primary text-xs hover:underline bg-white/5 px-4 py-2 rounded-full">
+                                        Upload Custom Photos
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-2 shadow-inner">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-300 font-bold text-lg">Visual Memory Locked</p>
+                                        <p className="text-xs text-gray-500 max-w-xs mx-auto mt-2 leading-relaxed">
+                                            This Soul hasn't shared any photos yet. <br/>
+                                            <span className="text-amber-500">Buy Souls</span> or expand your collection to unlock exclusive gallery content.
+                                        </p>
+                                    </div>
+                                    <button className="px-8 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-xs font-bold rounded-full shadow-lg shadow-orange-900/20 hover:scale-105 transition-transform flex items-center gap-2">
+                                        <span>💎</span> Acquire Souls
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -353,7 +384,7 @@ export const GalleryModal: React.FC<Props> = ({ persona, onUpdatePersona, onClos
                 </>
             )}
 
-            {activeTab === 'upload' && (
+            {activeTab === 'upload' && isDev && (
                 <div className="max-w-xl mx-auto space-y-6">
                     <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center hover:border-gray-500 transition cursor-pointer relative group bg-white/5">
                         <input 
