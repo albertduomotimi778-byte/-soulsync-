@@ -13,9 +13,9 @@ interface Props {
 }
 
 const shareOrDownload = async (filename: string, mimeType: string, dataString: string) => {
+    // 1. Try Native Share first (Best UX for supported mobile)
     try {
-        const blob = new Blob([dataString], { type: mimeType });
-        const file = new File([blob], filename, { type: mimeType });
+        const file = new File([new Blob([dataString], { type: mimeType })], filename, { type: mimeType });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
@@ -26,17 +26,41 @@ const shareOrDownload = async (filename: string, mimeType: string, dataString: s
             return;
         }
     } catch (e) {
-        console.warn("Native share failed, falling back to download link.", e);
+        console.warn("Native share failed, attempting download strategy.", e);
     }
 
-    const url = URL.createObjectURL(new Blob([dataString], { type: mimeType }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a); 
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // 2. APK Download Strategy: Mini Iframe + Anchor
+    // Using application/octet-stream forces browser to treat as download to avoid viewing JSON in browser
+    try {
+        const blob = new Blob([dataString], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        
+        // Mini Iframe (Requested Solution for APKs)
+        // This forces the WebView to trigger a download event
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+
+        // Anchor Link Fallback (Standard Web)
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a); 
+        a.click();
+
+        // Cleanup & Toast
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            window.notify("Saved to device downloads", "success");
+        }, 1500);
+    } catch (e) {
+        console.error("Download failed", e);
+        window.notify("Export failed", "error");
+    }
 };
 
 export const TrainingModal: React.FC<Props> = ({ persona, onUpdate, onClose, onExport, onPremiumRequired }) => {
