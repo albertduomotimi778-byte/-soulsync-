@@ -30,9 +30,8 @@ jobs:
       - name: Build
         env:
            CI: false 
-        # Run build with relative base path to support renaming/deployment to any subpath
-        run: npm run build -- --base=./
-
+        run: npm run build
+      
       - name: Check output directory and handle SPA fallback
         id: check_dir
         run: |
@@ -42,6 +41,14 @@ jobs:
           elif [ -d "build" ]; then
             cp build/index.html build/404.html || true
             echo "artifact_path=./build" >> $GITHUB_OUTPUT
+          elif [ -d "_site" ]; then
+            # Jekyll/MkDocs default
+            cp _site/index.html _site/404.html || true
+            echo "artifact_path=./_site" >> $GITHUB_OUTPUT
+          elif [ -d "site" ]; then
+             # MkDocs alternative
+            cp site/index.html site/404.html || true
+            echo "artifact_path=./site" >> $GITHUB_OUTPUT
           else
             # Static site fallback: upload current directory
             if [ -f "index.html" ]; then cp index.html 404.html || true; fi
